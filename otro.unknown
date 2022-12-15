@@ -1,0 +1,126 @@
+from machine import Pin, ADC
+from time import sleep
+import dht
+import socket
+
+led = Pin(2, Pin.OUT)
+sensor = dht.DHT11(Pin(14))
+pot=ADC(0)
+
+led_state = "OFF"
+
+def read_sensor():
+    sensor.measure()
+    temp = sensor.temperature()
+    hum = sensor.humidity()
+    pot_value = pot.read()
+    print('Temperature: %3.1f C' %temp)
+    print('Luminosity:', pot_value)
+    print('Humidity: %3.1f %%' %hum)
+    return temp, hum, pot_value
+
+def web_page():
+    result_sensor = read_sensor()
+    html = """<!DOCTYPE html>
+
+    <head>
+        <meta charset="utf-8" />
+        <title>ESP WEB SERVER</title>
+        <meta content="width=device-width, initial-scale=1" name="viewport" />
+        <meta content="Webflow" name="generator" />
+        <link
+            href="https://uploads-ssl.webflow.com/638d9c5b8b80d85b7975a29d/css/patricia-elizabeths-stellar-site.webflow.4df27da7b.css"
+            rel="stylesheet" type="text/css" />
+    </head>
+
+    <body>
+        <section class="team-slider wf-section">
+            <div class="container">
+                <h2 class="centered-heading">Home Monitoring and Control<br />Embedded WebServer</h2>
+                <p class="centered-subheading">Embedded WebSwerver using MicroPython and Socket Library</p>
+                <div class="w-row">
+                    <div class="w-col w-col-3"><img
+                            src="https://uploads-ssl.webflow.com/638d9c5b8b80d85b7975a29d/638d9dde95fb43be0153fa41_temperature-control.png"
+                            loading="lazy"
+                            sizes="(max-width: 568px) 90vw, (max-width: 767px) 512px, (max-width: 991px) 162px, 215px"
+                            srcset="https://uploads-ssl.webflow.com/638d9c5b8b80d85b7975a29d/638d9dde95fb43be0153fa41_temperature-control-p-500.png 500w, https://uploads-ssl.webflow.com/638d9c5b8b80d85b7975a29d/638d9dde95fb43be0153fa41_temperature-control.png 512w"
+                            alt="" class="image" />
+                        <h1 class="heading-3">Temperature</h1>
+                        <h2 style="text-align:center; color:GoldenRod;" >""" + str(result_sensor[0]) + """  </h2>
+                    </div>
+                    <div class="w-col w-col-3"><img
+                            src="https://uploads-ssl.webflow.com/638d9c5b8b80d85b7975a29d/638d9e561539181c2156e084_smart-home.png"
+                            loading="lazy"
+                            sizes="(max-width: 568px) 90vw, (max-width: 767px) 512px, (max-width: 991px) 162px, 215px"
+                            srcset="https://uploads-ssl.webflow.com/638d9c5b8b80d85b7975a29d/638d9e561539181c2156e084_smart-home-p-500.png 500w, https://uploads-ssl.webflow.com/638d9c5b8b80d85b7975a29d/638d9e561539181c2156e084_smart-home.png 512w"
+                            alt="" />
+                        <h1 class="heading">Humidity</h1>
+                        <h2 style="text-align:center; color:GoldenRod;" >""" + str(result_sensor[1]) + """  </h2>
+                    </div>
+                    <div class="w-col w-col-3"><img
+                            src="https://uploads-ssl.webflow.com/638d9c5b8b80d85b7975a29d/638d9eb36a8a27496eb51673_led-light.png"
+                            loading="lazy"
+                            sizes="(max-width: 568px) 90vw, (max-width: 767px) 512px, (max-width: 991px) 162px, 215px"
+                            srcset="https://uploads-ssl.webflow.com/638d9c5b8b80d85b7975a29d/638d9eb36a8a27496eb51673_led-light-p-500.png 500w, https://uploads-ssl.webflow.com/638d9c5b8b80d85b7975a29d/638d9eb36a8a27496eb51673_led-light.png 512w"
+                            alt="" />
+                        <h1 class="heading-2">Light Controller</h1>
+                        <div class="w-row">
+                            <div class="column-3 w-col w-col-6"><a href=\"led_off" class="button-6 w-button">OFF</a></div>
+                            <div class="column-2 w-col w-col-6"><a href=\"led_on" class="button-5 w-button">ON</a></div>
+                        </div>
+                    </div>
+                    <div class="w-col w-col-3"><img
+                            src="https://uploads-ssl.webflow.com/638d9c5b8b80d85b7975a29d/6396da53c763eae0e07eee1f_brightness.png"
+                            loading="lazy"
+                            sizes="(max-width: 568px) 90vw, (max-width: 767px) 512px, (max-width: 991px) 162px, 215px"
+                            srcset="https://uploads-ssl.webflow.com/638d9c5b8b80d85b7975a29d/6396da53c763eae0e07eee1f_brightness-p-500.png 500w"
+                            alt="" />
+                        <h1 class="heading-5">Luminosity</h1>
+                        <h2 style="text-align:center; color:GoldenRod;" >""" + str(result_sensor[2]) + """  </h2>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </body>
+
+    </html>"""
+    return html
+
+                        
+
+
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.bind(('', 80))
+s.listen(5)
+
+while True:
+    try:
+        if gc.mem_free() < 102000:
+            gc.collect()
+        conn, addr = s.accept()
+        conn.settimeout(3.0)
+        
+        print('Received HTTP GET connection request from %s' % str(addr))
+        request = conn.recv(1024)
+        conn.settimeout(None)
+        request = str(request)
+        print('GET Rquest Content = %s' % request)
+        led_on = request.find('/?led_on')
+        led_off = request.find('/?led_off')
+        if led_on == 6:
+            print('LED ON -> GPIO2')
+            led_state = "ON"
+            led.on()
+        if led_off == 6:
+            print('LED OFF -> GPIO2')
+            led_state = "OFF"
+            led.off()
+        response = web_page()
+        conn.send('HTTP/1.1 200 OK\n')
+        conn.send('Content-Type: text/html\n')
+        conn.send('Connection: close\n\n')
+        conn.sendall(response)
+        conn.close()
+    except OSError as e:
+        conn.close()
+        print('Connection closed')
